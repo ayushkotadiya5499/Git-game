@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { GitBranch, Activity, RefreshCw, CheckCircle2, Command as CommandIcon, History, Search, Hash, X, ArrowRight, ChevronRight, Play, Pause, FastForward, Sun, Moon, GraduationCap, MonitorPlay, MoveRight, FileText } from 'lucide-react';
+import { GitBranch, Activity, RefreshCw, CheckCircle2, Command as CommandIcon, History, Search, Hash, X, ArrowRight, ChevronRight, Play, Pause, FastForward, Sun, Moon, GraduationCap, MonitorPlay, MoveRight, FileText, Undo2, BookOpen, Sparkles } from 'lucide-react';
 import GitGraph from './GitGraph';
 import Terminal from './Terminal';
 import LifecycleView from './LifecycleView';
@@ -10,7 +10,8 @@ const GameInterface = () => {
   // --- STATE ---
   const [repoState, setRepoState] = useState(INITIAL_REPO_STATE);
   const [terminalHistory, setTerminalHistory] = useState([
-    { type: 'info', content: 'GitGraph Engine v3.0.0 (Stable) initialized.' }
+    { type: 'info', content: 'GitGraph Engine v3.0.0 (Stable) initialized.' },
+    { type: 'info', content: '💡 Type "help" in terminal for quick reference!' }
   ]);
   
   // Selection State: { type: 'commit'|'edge'|'virtual', data: ... }
@@ -26,6 +27,14 @@ const GameInterface = () => {
   const [currentLevelIdx, setCurrentLevelIdx] = useState(0);
   const [currentTaskIdx, setCurrentTaskIdx] = useState(0);
   const [completed, setCompleted] = useState(false);
+  
+  // Undo feature - store previous states
+  const [stateHistory, setStateHistory] = useState([]);
+  const MAX_UNDO_HISTORY = 10;
+  
+  // Tutorial tooltip state
+  const [showTutorial, setShowTutorial] = useState(true);
+  const [tutorialStep, setTutorialStep] = useState(0);
 
   // Persistence Load
   useEffect(() => {
@@ -87,10 +96,17 @@ const GameInterface = () => {
         resetGame();
         return; 
     }
+    if (input === 'undo') {
+        handleUndo();
+        return;
+    }
 
     const res = processGitCommand(repoState, input);
 
     if (res.valid) {
+      // Save current state to history before applying new state (for undo)
+      setStateHistory(prev => [...prev.slice(-MAX_UNDO_HISTORY + 1), repoState]);
+      
       setRepoState(res.state);
       setTerminalHistory(p => [...p, { type: 'command', content: `> ${input}` }, { type: 'success', content: res.message }]);
       
@@ -106,6 +122,18 @@ const GameInterface = () => {
     } else {
       setTerminalHistory(p => [...p, { type: 'command', content: `> ${input}` }, { type: 'error', content: res.message }]);
     }
+  };
+  
+  // Undo last command
+  const handleUndo = () => {
+    if (stateHistory.length === 0) {
+      setTerminalHistory(p => [...p, { type: 'error', content: 'Nothing to undo!' }]);
+      return;
+    }
+    const prevState = stateHistory[stateHistory.length - 1];
+    setStateHistory(prev => prev.slice(0, -1));
+    setRepoState(prevState);
+    setTerminalHistory(p => [...p, { type: 'info', content: '↩️ Undid last command' }]);
   };
 
   const handleTaskCompletion = () => {
